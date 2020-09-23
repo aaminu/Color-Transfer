@@ -1,19 +1,25 @@
 import cv2
 import numpy as np
+import argparse
+import glob
+import sys
 
 
 class ColorTransfer:
 
     def __init__(self, source_image, target_image, transfer_name=None):
+
         self.source = cv2.imread(source_image)
         self.target = cv2.imread(target_image)
-        self.target_name = target_image.split('/')
         self.transfer_name = transfer_name
-        
-        if (self.target_name[-1] is None or self.target_name[-1] is '') and (self.transfer_name is None):
-            self.transfer_name = 'new_' + self.target_name[-2]
-        elif self.transfer_name is None:
-            self.transfer_name = 'new_' + self.target_name[-1]
+
+        # Protected
+        self._target_name = target_image.split('/')
+
+        if self.transfer_name is None or self.transfer_name == '':
+            self.transfer_name = ('/').join(self._target_name[:-1]) + '/filtered_' + self._target_name[-1]
+        else:
+            self.transfer_name = ('/').join(self._target_name[:-1]) + '/' +self.transfer_name + '.png'
 
 
 
@@ -35,24 +41,24 @@ class ColorTransfer:
         self.image_color_lab()
 
         # compute color statistics for the source and target images
-        (lMeanSrc, lStdSrc, aMeanSrc, aStdSrc, bMeanSrc, bStdSrc) = self.image_stat(self.source)
-        (lMeanTar, lStdTar, aMeanTar, aStdTar, bMeanTar, bStdTar) = self.image_stat(self.target)
+        (l_mean_src, l_std_src, a_mean_src, a_std_src, b_mean_src, b_std_src) = self.image_stat(self.source)
+        (l_mean_tar, l_std_tar, a_mean_tar, a_std_tar, b_mean_tar, b_std_tar) = self.image_stat(self.target)
 
         # split target into L,a, b for further analysis, subtract it mean to achieve no deviation
         l, a, b = cv2.split(self.target)
-        l -= lMeanTar
-        a -= aMeanTar
-        b -= bMeanTar
+        l -= l_mean_tar
+        a -= a_mean_tar
+        b -= b_mean_tar
 
         # Scale with Std from source to achieve same deviation
-        l = (lStdTar/lStdSrc) * l
-        a = (aStdTar / aStdSrc) * a
-        b = (bStdTar/bStdSrc) * b
+        l = (l_std_tar/l_std_src) * l
+        a = (a_std_tar / a_std_src) * a
+        b = (b_std_tar/b_std_src) * b
 
         # Add source mean for correction
-        l += lMeanSrc
-        a += aMeanSrc
-        b += bMeanSrc
+        l += l_mean_src
+        a += a_mean_src
+        b += b_mean_src
 
         # Clip to 256 because of Color range
         l = np.clip(l, 0, 255)
@@ -63,6 +69,40 @@ class ColorTransfer:
         transfer = cv2.merge([l, a, b])
         transfer = cv2.cvtColor(transfer.astype('uint8'), cv2.COLOR_LAB2BGR)
 
+        # Wirte and save new image
         cv2.imwrite(self.transfer_name, transfer)
+
+
+if __name__ == '__main__':
+    try:
+        source_image = input('Enter path to source/primary image: ')
+        decision = input('\nIs a single image or files containing images. Please input "S" for single image or "F" for '
+                         'file: ').upper()
+        if decision == 'S':
+            target_image = input('\nEnter path to Target image: ')
+            target_name = input('\nEnter name for new image or press Enter: ')
+            color_transfer = ColorTransfer(source_image, target_image, transfer_name=target_name)
+            color_transfer.transfer()
+
+        elif decision == 'F':
+            target_folder = input('\nEnter path to Target folder: ')
+            images = []
+            for png in glob.glob(target_folder + '/*.png'):
+                images.append(png)
+            for jpg in glob.glob(target_folder + '/*.jpg'):
+                images.append(jpg)
+
+            for image in images:
+                color_transfer = ColorTransfer(source_image, image)
+                color_transfer.transfer()
+        else:
+            raise TypeError
+
+    except Exception as e:
+        print('An error occured', e, 'please retry')
+
+
+
+
 
 
