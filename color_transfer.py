@@ -8,7 +8,7 @@ import sys
 class ColorTransfer:
 
     def __init__(self, source_image, target_image, transfer_name=None):
-
+        #Initialization of attributes
         self.source = cv2.imread(source_image)
         self.target = cv2.imread(target_image)
         self.transfer_name = transfer_name
@@ -16,13 +16,14 @@ class ColorTransfer:
         # Protected
         self._target_name = target_image.split('/')
 
+        # Check if transfer name is not None or empty string. Set to filtered if empty
         if self.transfer_name is None or self.transfer_name == '':
             self.transfer_name = ('/').join(self._target_name[:-1]) + '/filtered_' + self._target_name[-1]
         else:
             self.transfer_name = ('/').join(self._target_name[:-1]) + '/' +self.transfer_name + '.png'
 
 
-
+    # Conversion of Image to equivalent Human-eye perception L*a*b
     def image_color_lab(self):
         self.source = cv2.cvtColor(self.source, cv2.COLOR_BGR2LAB).astype('float32')
         self.target = cv2.cvtColor(self.target, cv2.COLOR_BGR2LAB).astype('float32')
@@ -72,8 +73,51 @@ class ColorTransfer:
         # Wirte and save new image
         cv2.imwrite(self.transfer_name, transfer)
 
+# Function to handle multiple file types in target folder
+def file_color_transfer(source_image:str, target_file:str, file_type:tuple):
+    file = target_file
+    types = file_type
+    images = []
+    for image_type in types: # Retrieves all the images in the supplied directory based on the file_type supplied
+        images.extend(glob.glob(file + image_type))
 
-if __name__ == '__main__':
+    for image in images: # Applies the ColorTransfer class from above to all the images in the file.
+        color_transfer = ColorTransfer(source_image, image)
+        color_transfer.transfer()
+
+# Create Command line arguement parser, please endeavor to supply either -t target_image or -f target_file but not both.
+ag = argparse.ArgumentParser(description='parser for command line')
+ag.add_argument('-s', '--source_image', default=argparse.SUPPRESS, help='Path to Source Image')
+ag.add_argument('-t', '--target_image', default=argparse.SUPPRESS, help='Path to Target Image')
+ag.add_argument('-f', '--target_file', default=argparse.SUPPRESS, help='Path to Target file with many images')
+args = vars(ag.parse_args())
+
+# Check if command line was parsed, to be used for decision make below
+check_source_image = isinstance(args.get('source_image', False), str)
+check_target_image = isinstance(args.get('target_image', False), str)
+check_target_file = isinstance(args.get('target_file', False), str)
+
+# Checking if command line arguements were provided and also verify that only a targert image or target file was provided.
+if check_source_image and (check_target_image ^ check_target_file):
+    try:
+        source_image = args['source_image']
+
+        if args.get('target_image', False):
+            target_image = args['target_image']
+            color_transfer = ColorTransfer(source_image, target_image)
+            color_transfer.transfer()
+
+        elif args.get('target_file', False):
+            target_folder = args['target_file']
+            file_color_transfer(source_image, target_folder, ('/*.jpg', '/*.png'))
+
+    except Exception as e:
+        print('\nAn error occured', e, 'please retry\n')
+
+# Switch to Interactive Command line if arguments werent provided above
+else:
+    print('\n...Opting for the interactive CLI method due to an error\n')
+
     try:
         source_image = input('Enter path to source/primary image: ')
         decision = input('\nIs a single image or files containing images. Please input "S" for single image or "F" for '
@@ -86,23 +130,10 @@ if __name__ == '__main__':
 
         elif decision == 'F':
             target_folder = input('\nEnter path to Target folder: ')
-            images = []
-            for png in glob.glob(target_folder + '/*.png'):
-                images.append(png)
-            for jpg in glob.glob(target_folder + '/*.jpg'):
-                images.append(jpg)
+            file_color_transfer(source_image, target_folder, ('/*.jpg', '/*.png'))
 
-            for image in images:
-                color_transfer = ColorTransfer(source_image, image)
-                color_transfer.transfer()
         else:
             raise TypeError
 
     except Exception as e:
-        print('An error occured', e, 'please retry')
-
-
-
-
-
-
+        print('\nAn error occured', e, 'please retry\n')
