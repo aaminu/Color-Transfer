@@ -3,6 +3,8 @@ import numpy as np
 import argparse
 import glob
 import sys
+import os.path
+from pathlib import Path
 
 
 class ColorTransfer:
@@ -85,6 +87,24 @@ def file_color_transfer(source_image:str, target_file:str, file_type:tuple):
         color_transfer = ColorTransfer(source_image, image)
         color_transfer.transfer()
 
+
+# function to determine if image path or file path is correct when using interactive cli
+def path_receiver_and_checker(name: str):
+    """
+    name: String of what you are requesting for e.g source image, or Target Image, or Target File
+    """
+    path = input(f'Enter path to {name}: ')
+    if path != '':
+        path_verifier = Path(path).exists()
+    elif source_image == '':
+        path_verifier = False
+
+    while not path_verifier:
+        path = input(f"\n Wrong or Empty Path inputted. Enter a correct path to {name}: ")
+
+    return path
+
+
 # Create Command line arguement parser, please endeavor to supply either -t target_image or -f target_file but not both.
 ag = argparse.ArgumentParser(description='parser for command line')
 ag.add_argument('-s', '--source_image', default=argparse.SUPPRESS, help='Path to Source Image')
@@ -97,43 +117,48 @@ check_source_image = isinstance(args.get('source_image', False), str)
 check_target_image = isinstance(args.get('target_image', False), str)
 check_target_file = isinstance(args.get('target_file', False), str)
 
-# Checking if command line arguements were provided and also verify that only a targert image or target file was provided.
-if check_source_image and (check_target_image ^ check_target_file):
-    try:
-        source_image = args['source_image']
+def run():
+    # Checking if command line arguements were provided and also verify that only a targert image or target file was provided.
+    if check_source_image and (check_target_image ^ check_target_file):
+        try:
+            source_image = args['source_image']
 
-        if args.get('target_image', False):
-            target_image = args['target_image']
-            color_transfer = ColorTransfer(source_image, target_image)
-            color_transfer.transfer()
+            if args.get('target_image', False):
+                target_image = args['target_image']
+                color_transfer = ColorTransfer(source_image, target_image)
+                color_transfer.transfer()
 
-        elif args.get('target_file', False):
-            target_folder = args['target_file']
-            file_color_transfer(source_image, target_folder, ('/*.jpg', '/*.png'))
+            elif args.get('target_file', False):
+                target_folder = args['target_file']
+                file_color_transfer(source_image, target_folder, ('/*.jpg', '/*.png'))
 
-    except Exception as e:
-        print('\nAn error occured', e, 'please retry\n')
+        except Exception as e:
+            print('\nAn error occured', e, 'please retry\n')
 
-# Switch to Interactive Command line if arguments werent provided above
-else:
-    print('\n...Opting for the interactive CLI method due to an error\n')
+    # Switch to Interactive Command line if arguments werent provided above
+    else:
+        print('\n...Opting for the interactive CLI method due to an error\n')
 
-    try:
-        source_image = input('Enter path to source/primary image: ')
-        decision = input('\nIs a single image or files containing images. Please input "S" for single image or "F" for '
-                         'file: ').upper()
-        if decision == 'S':
-            target_image = input('\nEnter path to Target image: ')
-            target_name = input('\nEnter name for new image or press Enter: ')
-            color_transfer = ColorTransfer(source_image, target_image, transfer_name=target_name)
-            color_transfer.transfer()
+        try:
+            source_image = path_receiver_and_checker('Source Image')
 
-        elif decision == 'F':
-            target_folder = input('\nEnter path to Target folder: ')
-            file_color_transfer(source_image, target_folder, ('/*.jpg', '/*.png'))
+            decision = input('\nIs a single image or files containing images. Please input "S" for single image or "F" for '
+                             'file: ').upper()
 
-        else:
-            raise TypeError
+            if decision == 'S':
+                target_image = path_receiver_and_checker('Target Image')
+                target_name = input('\nEnter name for new image or press Enter: ')
+                color_transfer = ColorTransfer(source_image, target_image, transfer_name=target_name)
+                color_transfer.transfer()
 
-    except Exception as e:
-        print('\nAn error occured', e, 'please retry\n')
+            elif decision == 'F':
+                target_folder = path_receiver_and_checker('Target Folder')
+                file_color_transfer(source_image, target_folder, ('/*.jpg', '/*.png'))
+
+            else:
+                raise TypeError
+
+        except Exception as e:
+            print('\nAn error occured: ', e, ', please retry\n')
+
+run()
