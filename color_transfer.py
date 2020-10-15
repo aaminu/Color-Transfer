@@ -161,4 +161,5 @@ def run():
         except Exception as e:
             print('\nAn error occured: ', e, ', please retry\n')
 
-run()
+if __name__ == '__main__':
+    run()
